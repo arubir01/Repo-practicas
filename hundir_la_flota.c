@@ -13,7 +13,7 @@ void colocarBarcosManualmente(int *t, int f, int c);
 void colocarBarcosAutomaticamente(int *t, int f, int c);
 void inicializarTablero(int *t, int f, int c);
 void imprimirTablero(int *t, int f, int c);
-void imprimirTableroArchivo(int *t, int f, int c, FILE *pa);
+void imprimirTableroArchivo(int *t, int f, int c, FILE *parchivo);
 int comprobacionEspacioParaBarco(int *t, int f, int c, int iniFila, int iniCol, int tamBarco, int orientacion);
 int compruebaGanador (int *b, int f, int c);
 int compruebaDisparo(int *t, int f, int c, int posFila, int posCol);
@@ -27,21 +27,24 @@ int main(int argc, char *argv[]){
 //		--Si son correctos:
 //				--- lee las filas y las columnas del tablero
 //				--- mientras la opción leída no sea 3, juega al hundir la flota 
+	int opcion,f,c;
 
+	if(argc!=3){
+		printf("\nEl número de argumentos no es correcto(tiene que ser 2).");
+		exit(-1);
+	}
+		
 		srand(time(NULL));
-		int f = atoi(argv[0]);
-		int c = atoi(argv[1]);
-		int opcion;
-		menu();	
+		f = atoi(argv[1]);
+		c = atoi(argv[2]);
+			
 	do
 	{
-			
-			if(opcion != 3)
-				{	
-				hundirLaFlota(opcion,f,c);
-				}	
-	}while(argc==2);
-	printf("\nEl número de argumentos no es correcto(tiene que ser 2).");
+		opcion=menu();
+		hundirLaFlota(opcion,f,c);
+
+	}while(opcion!=3);
+	
 	return 0;
 }
 
@@ -51,17 +54,18 @@ int menu(){
 //	- OUTPUTS: la opción leída (1, 2 ó 3)
 //  - Presenta el menú por pantalla y lee una opción. Si no es 1, 2 ó 3 da un mensaje de error y vuelve a leerla hasta que sea correcta.
 	int opcion;
-	printf("\n------------MENU-----------");
-	printf("\n---Seleccione una opción---");
-	printf("\n-----1.Juego Manual--------");
-	printf("\n-----2.Juego Automático----");
-	printf("\n-----3.Salir del Juego-----");
-	scanf("%d",&opcion);
 	do
-	{
-		printf("\nOpción no válida, inténtelo de nuevo");
-	}
-while(opcion != 1 || opcion != 2 || opcion != 3);
+	{	
+		printf("\n------------MENU-----------");
+		printf("\n---Seleccione una opción---");
+		printf("\n-----1.Juego Manual--------");
+		printf("\n-----2.Juego Automático----");
+		printf("\n-----3.Salir del Juego-----");
+		scanf("%d",&opcion);
+		if(opcion < 1 || opcion > 3){
+			printf("\nOpción no válida, inténtelo de nuevo");
+		}	
+	}while(opcion < 1 || opcion > 3);
 return opcion;
 }
 
@@ -115,7 +119,7 @@ if(parchivo==NULL){
 fprintf(stderr, "Ha ocurrido un error al abrir el archivo");
 exit(EXIT_FAILURE);
 }
-int *b1,*t1,*b2,*t2,tam;
+int *b1,*t1,*b2,*t2,tam,final=0,fil,col,disparo,ganador;
 tam = f *c;
 
 b1 = (int *)malloc(tam*sizeof(int));
@@ -133,6 +137,40 @@ colocarBarcosAutomaticamente(b2,f,c);
 
 imprimirTableroArchivo(b1,f,c,parchivo);
 imprimirTableroArchivo(b2,f,c,parchivo);
+
+do{
+//ataca J1
+		fil=rand()%f;
+		col=rand()%c;
+		disparo=compruebaDisparo(b2, f, c, fil, col);
+		if(disparo==0)
+			disparo=-1;
+		*(t1+fil*c+col)=disparo;
+		ganador=compruebaGanador (b2, f, c);
+		if(ganador){
+			printf("\nGanador J1\n");
+			final=1;
+		}else{
+			fil=rand()%f;
+			col=rand()%c;
+			disparo=compruebaDisparo(b1, f, c, fil, col);
+			if(disparo==0)
+				disparo=-1;
+			*(t2+fil*c+col)=disparo;
+			ganador=compruebaGanador (b1, f, c);
+			if(ganador){
+				printf("\nGanador J2\n");
+				final=1;
+			}
+		}
+
+
+}while(!final);
+
+imprimirTableroArchivo(b1,f,c,parchivo);
+imprimirTableroArchivo(b2,f,c,parchivo);
+
+fclose (parchivo);
 }
 
 
@@ -152,8 +190,18 @@ void inicializarTablero(int *t, int f, int c){
 				}
 		}
 }
+void imprimirTablero(int *t, int f, int c){
+int i,j;
+	for(i=0;i<f;i++){
+		for(j=0;j<c;j++){
+			printf("%d ",*(t + i * c + j));
+		}
+		printf("\n");
+	}
+		
+}
 
-void imprimirTableroArchivo(int *t, int f, int c, FILE *pa){
+void imprimirTableroArchivo(int *t, int f, int c, FILE *parchivo){
 //Función imprimirTableroArchivo
 //INPUTS:
 //	- puntero a un tablero (barcos, tiradas o lo que sea)
@@ -162,29 +210,14 @@ void imprimirTableroArchivo(int *t, int f, int c, FILE *pa){
 // 	- puntero a archivo
 //OUTPUTs: nada
 //Imprime en el archivo la matriz pasada	
-FILE *parchivo;
-parchivo = fopen("tiradas.txt","a");
-
-if(parchivo==NULL){
-
-fprintf(stderr, "Ha ocurrido un error al abrir el archivo");
-exit(EXIT_FAILURE);
-}
-char linea[80];
-sprintf(linea,"%d %d\n",f,c);
-fputs(linea,parchivo);
-for(int n=0;n<f;n++){
-	linea[0] = '\0';
-	for(int m=0;m<c;m++){
-			char buffer[10];
-			sprintf(buffer,"%d ",*(t + n * c + m));
-			strcat(linea,buffer);
+int i,j;
+	fprintf(parchivo,"\nTablero:\n");
+	for(i=0;i<f;i++){
+		for(j=0;j<c;j++){
+			fprintf(parchivo,"%d ",*(t + i * c + j));
 		}
-int len = strlen(linea);
-linea[len - 1]='\0';
-fputs(linea,parchivo);
-}
-fclose(parchivo);
+		fprintf(parchivo,"\n");
+	}
 }
 
 int compruebaGanador (int *b, int f, int c){
@@ -195,7 +228,15 @@ int compruebaGanador (int *b, int f, int c){
 //	- columnas
 //OUTPUTS: nada
 //Busca si quedan barcos por hundir. Si no, devuelve 0. 
-	
+int i,j;
+	for(i=0;i<f;i++){
+		for(j=0;j<c;j++){
+			if(*(b+i*c+j)>0){
+				return 0;
+			}	
+		}
+	}
+	return 1;
 }
 
 int compruebaDisparo(int *t, int f, int c, int posFila, int posCol){
@@ -206,7 +247,12 @@ int compruebaDisparo(int *t, int f, int c, int posFila, int posCol){
 //	- columnas
 //	- tiro (fila y columna)
 //OUTPUTS: 0 si agua, 1 si hay un barco de 1, 2 si hay un barco de 2, 3 si hay un barco de 3
-	
+	int valor = *(t+posFila*c+posCol);
+	if(valor > 0 ){
+		*(t+posFila*c+posCol)*=-1;
+		return valor;
+	}
+	return 0;
 }
 
 int comprobacionEspacioParaBarco(int *t, int f, int c, int iniFila, int iniCol, int tamBarco, int orientacion){
@@ -221,100 +267,40 @@ int comprobacionEspacioParaBarco(int *t, int f, int c, int iniFila, int iniCol, 
 //	- orientación (0 horizontal, 1 vertical)
 //OUTPUTS: 1 si cabe, 0 si no cabe
 //Comprueba si cabe un barco a partir de la posición indicada en la orientación indicada. Devuelve 0 si no cabe, 1 si sí.
+	if(orientacion == 0&&iniCol+tamBarco>c)
+		return 0;	
+	if(orientacion == 1&&iniFila+tamBarco>f)
+		return 0;
+
+	if(tamBarco > 2 ){
+		if(orientacion == 0){
+			if(*(t + iniFila * c + (iniCol+2)) != 0){
+				return 0;
+			}
+		}else{
+			if(*(t + (iniFila+2) * c + iniCol) != 0){
+				return 0;
+			}
+		}
+	}
 	
-				if(tamBarco = 1){
-					if((orientacion == 0) || (orientacion == 1)){
-					if(*(t + iniFila * c + iniCol) = 0){
-					return 1;
-					}else{
-					return 0;
+	if(tamBarco > 1 ){
+		if(orientacion == 0){
+			if(*(t + iniFila * c + (iniCol+1)) != 0){
+				return 0;
+			}
+		}else{
+			if(*(t + (iniFila+1) * c + iniCol) != 0){
+				return 0;
 			}
 		}
 	}
-				if(tamBarco = 2){
-					if(orientacion ==0){
-					if(*(t + iniFila * c + iniCol) = 0){
-					return 1;
-					}else{
-					return 0;
-			}
-		}
-					if(orientacion == 0){	
-					iniFila = iniFila + 1;
-					if(*(t + iniFila * c + iniCol) = 0 && iniFila <= f){
-					return 1;
-					}else{
-					return 0;
-			}
-		}	
-				if(tamBarco = 2){
-					if(orientacion == 1){
-					if(*(t + iniFila * c + iniCol) = 0){
-					return 1;
-					}else{
-					return 0;
-			}
-		}
-					if(orientacion == 1){	
-					iniCol = iniCol + 1;
-					if(*(t + iniFila * c + iniCol) = 0 && iniCol <= c){
-					return 1;
-					}else{
-					return 0;
-			}
+	if(*(t + iniFila * c + iniCol) != 0){
+				return 0;
 	}
+return 1;
 }
-				if(tamBarco = 3){
-					if(orientacion == 0){
-					if(*(t + iniFila * c + iniCol) = 0){
-					return 1;
-					}else{
-					return 0;
-			}
-		}
-					if(orientacion == 0){	
-					iniFila = iniFila + 1;
-					if(*(t + iniFila * c + iniCol) = 0 && iniFila <= f){
-					return 1;
-					}else{
-					return 0;
-			}
-		}
-					if(orientacion == 0){
-					iniFila = iniFila + 2;
-					if(*(t + iniFila * c + iniCol) = 0 && iniFila <= f){
-					return 1;
-					}else{
-					return 0;
-			}
-		}	
-	}
-				if(tamBarco = 3){
-					if(orientacion == 1){
-					if(*(t + iniFila * c + iniCol) = 0){
-					return 1;
-					}else{
-					return 0;
-			}
-		}
-					if(orientacion == 1){	
-					iniCol = iniCol + 1;
-					if(*(t + iniFila * c + iniCol) = 0 && iniCol <= c){
-					return 1;
-					}else{
-					return 0;
-			}
-	}
-					if(orientacion == 1){
-					iniCol = iniCol + 2;
-					if(*(t + iniFila * c + iniCol) = 0 && iniCol <= c){
-					return 1;
-					}else{
-					return 0;
-			}
-		}
-	}
-}
+
 
 void colocarBarcosAutomaticamente(int *t, int f, int c){
 //Función colocarBarcosAutomaticamente
@@ -325,64 +311,22 @@ void colocarBarcosAutomaticamente(int *t, int f, int c){
 //OUTPUTS: nada
 //Coloca de forma automatica 4 barcos de 1 posición, 2 de 2 posiciones y 1 de 3 posiciones en el tablero
 	
-
-
-do{
-	for(int n = rand()%(f-1);n<f;n++)
-	{
-		for(int m = rand()%(c-1);m<c;m++)
-			{
-				for(int i1=0;i1<4;i1++)
-					{
-					int orientacion = rand()%2;
-					int tamBarco = 1;
-					comprobacionEspacioParaBarco(t,f,c,iniFila,iniCol,tamBarco,orientacion);
-					*(t + n * c + m) = 1;				
-					}
+	int barcos[7]={1,1,1,1,2,2,3},b,fil,col,ori,cabe,i;
+	for(b=0;b<7;b++){
+		do{	
+		fil=rand()%f;
+		col=rand()%c;
+		ori=rand()%2;
+		cabe=comprobacionEspacioParaBarco(t,f,c,fil,col,barcos[b],ori);
+		}while(!cabe);
+		for(i=0;i<barcos[b];i++){
+			if(ori==0){
+				*(t+fil*c+(col+i))=barcos[b];
+			}else{
+				*(t+(fil+i)*c+col)=barcos[b];
 			}
+	 	}
 	}
-	for(int n = rand()%(f-1);n<f;n++)
-	{
-		for(int m = rand()%(c-1);m<c;m++)
-			{
-				for(int i2=0;i2<2;i2++)
-					{
-					int orientacion = rand()%2;
-					int tamBarco = 2;
-					comprobacionEspacioParaBarco(t,f,c,iniFila,iniCol,tamBarco,orientacion);
-					if(orientacion = 0){
-					*(t + n * c + m) = 2;
-					*(t + (n+1)* c + m) = 2;
-					}else{
-					*(t + n * c + (m+2)) = 2;
-					*(t + n * c + (m+2)) = 2;
-					}
-					}
-			}
-	}
-	for(int n = rand()%(f-1);n<f;n++)
-	{
-		for(int m = rand()%(c-1);m<c;m++)
-			{
-				for(int i3=0;i3<1;i3++)
-					{
-					int orientacion = rand()%2;
-					int tamBarco = 3;
-					comprobacionEspacioParaBarco(t,f,c,iniFila,iniCol,tamBarco,orientacion);
-					if(orientacion == 0){
-					*(t + n * c + m) = 3;
-					*(t + (n+1)* c + m) = 3;
-					*(t + (n+2)* c + m) = 3;
-					}
-					else{
-					*(t + n * c + m) = 3;
-					*(t + n * c + (m+1)) = 3;
-					*(t + n * c + (m+2)) = 3;
-					}
-					}	
-			}
-	}
-}while((i1 != 4) && (i2 != 2) && (i3 != 1));
 }
 
 
@@ -399,4 +343,4 @@ void colocarBarcosManualmente(int *t, int f, int c){
 
 
  }
-}
+
